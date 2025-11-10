@@ -1,11 +1,16 @@
 import os
+import pathlib
 from pathlib import Path
 from winotify import Notification
+from helpers.cleaner import delete_log_files
 from helpers.logger import *
 
 
-# Function to obtain the temp file directory path
 def obtain_file_path():
+    """
+    Creates the Temp file directory path and counts the number of files in the directory.
+    """
+    delete_log_files()
     try:
         current_user_dir = Path.home()
         logger.debug(f"Current user's home directory: {current_user_dir}")
@@ -22,8 +27,16 @@ def obtain_file_path():
         logger.critical(f"An unexpected error has occurred while obtaining the temp file directory path: {e}")
 
 
-# Function to delete all files in the temp file directory
-def delete_files(file_path, file_count):
+def delete_files(file_path: pathlib.Path, file_count: int):
+    """
+    Try to delete every file in the temp file directory.
+    If successful the delete file count increases by one and the file size is
+    added to the overall deleted temp files size.
+
+    :param file_path: File path for temporary files
+    :param file_count: Number of files in the directory
+    """
+
     delfile_count = 0
     temp_files_size = 0
 
@@ -55,8 +68,18 @@ def delete_files(file_path, file_count):
         logger.error(f"An unexpected error has occurred while executing the delete files function: {e}")
 
 
-# Function to delete empty folders
-def delete_empty_folders(file_path, delfile_count, file_count, temp_files_size):
+def delete_empty_folders(file_path: pathlib.Path, delfile_count: int, file_count: int, temp_files_size: float):
+    """
+    Try to delete every empty folder in the temp file directory.
+    If successful the deleted folder count increases by one.
+    Shows a toast notification after all folders are deleted with a summary of
+    all deleted files(sizes included) and folders.
+
+    :param file_path: File path for temporary files
+    :param delfile_count: Number of files deleted
+    :param file_count: Number of files in the directory before files and folders were deleted
+    :param temp_files_size: Overall size of deleted files
+    """
     dir_count = 0
 
     try:
