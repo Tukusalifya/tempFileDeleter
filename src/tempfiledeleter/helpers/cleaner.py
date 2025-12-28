@@ -1,8 +1,11 @@
-import os
-import pathlib
-from datetime import datetime
-from pathlib import Path
 import logging
+
+from pathlib import Path
+from datetime import datetime
+
+from src.tempfiledeleter.helpers.logger import logging_config
+
+logger = logging_config("Cleaner", level=logging.DEBUG)
 
 
 def delete_log_files():
@@ -13,8 +16,8 @@ def delete_log_files():
 
     """
     try:
-        logs_dir = Path(os.path.join(os.path.dirname(os.path.dirname(__file__)), f"logs"))
-        os.makedirs(name=logs_dir, exist_ok=True)
+        logs_dir = Path(__file__).parent / "logs"
+        logs_dir.mkdir(exist_ok=True)
 
         for path in logs_dir.rglob('*'):
             if path.is_file():
@@ -23,16 +26,16 @@ def delete_log_files():
 
                     file_date = datetime.strptime(filename, "%d-%m-%Y")
                     today = datetime.now()
-                    days_passed = (today - file_date).days
+                    days_passed = abs((today - file_date).days)
 
-                    if days_passed > 4:
+                    if days_passed >= 4:
                         path.unlink()
 
                     else:
-                        logging.log(logging.INFO, "Days passed are not greater than 4")
+                        logger.debug("Days passed are not greater than 4")
 
                 except ValueError:
-                    logging.log(logging.ERROR, f"Filename: {filename} is not the expected date format.")
+                    logger.error(f"Filename: {filename} is not the expected date format.")
 
     except Exception as e:
-        logging.log(logging.ERROR, f"An unexpected error has occurred while trying to delete the log files: {e}")
+        logging.critical(f"An unexpected error has occurred while trying to delete the log files: {e}")

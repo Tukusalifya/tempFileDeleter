@@ -1,0 +1,11 @@
+[project]
+name = "tempfiledeleter"
+version = "1.0.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "alive-progress>=3.3.0",
+    "rich>=14.2.0",
+    "winotify>=1.1.0",
+]

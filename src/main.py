@@ -1,9 +1,15 @@
 import os
 import pathlib
+import alive_progress
+
+from src.tempfiledeleter.helpers.logger import *
+
 from pathlib import Path
 from winotify import Notification
-from helpers.cleaner import delete_log_files
-from helpers.logger import *
+from src.tempfiledeleter.helpers.cleaner import delete_log_files
+
+
+logger = logging_config("Temp Deleter", level=logging.DEBUG)
 
 
 def obtain_file_path():
@@ -19,7 +25,7 @@ def obtain_file_path():
         logger.debug(f"Temporary files directory: {tempfile_dir}")
 
         file_count = sum(1 for f in tempfile_dir.rglob('*') if f.is_file())
-        logger.info(f"Number of files in the temporary files directory: {file_count}")
+        logger.debug(f"Number of files in the temporary files directory: {file_count}")
 
         delete_files(tempfile_dir, file_count)
 
@@ -41,26 +47,30 @@ def delete_files(file_path: pathlib.Path, file_count: int):
     temp_files_size = 0
 
     try:
-        for path in file_path.rglob('*'):
-            if path.is_file():
-                try:
-                    file_size = path.stat().st_size
-                    path.unlink()
-                    delfile_count += 1
-                    temp_files_size += file_size
+        with alive_progress.alive_bar(file_count, title="Deleting temporary files...", bar="blocks",
+                                      spinner="waves") as bar:
+            for path in file_path.rglob('*'):
+                if path.is_file():
+                    try:
+                        file_size = path.stat().st_size
+                        path.unlink()
+                        delfile_count += 1
+                        temp_files_size += file_size
 
-                except PermissionError as e:
-                    logger.error(f"Permission denied skipping file: {e}")
-                    continue
-                except OSError as e:
-                    logger.error(f"OS error skipping file: {e}")
-                    continue
+                    except PermissionError as e:
+                        logger.debug(f"Permission denied skipping file: {e}")
+                        continue
+                    except OSError as e:
+                        logger.debug(f"OS error skipping file: {e}")
+                        continue
+                    finally:
+                        bar()
 
-            elif path.is_dir():
-                continue
+                elif path.is_dir():
+                    continue
 
         logger.info(f"Total number of files deleted: {delfile_count}/{file_count}")
-        logger.info(f"Total size of deleted files: {temp_files_size / 1024 / 1024:.2f} MB")
+        logger.info(f"Total size of deleted files: {temp_files_size / 1024 / 1024:.2f} MB\n")
 
         delete_empty_folders(file_path, delfile_count, file_count, temp_files_size)
 
@@ -83,30 +93,38 @@ def delete_empty_folders(file_path: pathlib.Path, delfile_count: int, file_count
     dir_count = 0
 
     try:
-        for path in sorted(file_path.rglob('*'), reverse=True):
-            if path.is_dir() and not any(f.is_file() for f in path.iterdir()):
-                try:
-                    path.rmdir()
-                    dir_count += 1
+        folder_count = sum(
+            1 for file in file_path.rglob('*') if file.is_dir() and not any(f.is_file() for f in file.iterdir()))
 
-                except PermissionError as e:
-                    logger.error(f"Permission denied skipping folder: {e}")
+        with alive_progress.alive_bar(folder_count, title="Deleting empty folders...", bar="blocks",
+                                      spinner="waves") as bar:
+            for path in sorted(file_path.rglob('*'), reverse=True):
+                if path.is_dir() and not any(f.is_file() for f in path.iterdir()):
+                    try:
+                        path.rmdir()
+                        dir_count += 1
+
+                    except PermissionError as e:
+                        logger.debug(f"Permission denied skipping folder: {e}")
+                        continue
+                    except OSError as e:
+                        logger.debug(f"OS error skipping folder: {e}")
+                        continue
+                    finally:
+                        bar()
+
+                else:
                     continue
-                except OSError as e:
-                    logger.error(f"OS error skipping folder: {e}")
-                    continue
-            else:
-                continue
 
         logger.info(f"Total number of empty folders deleted: {dir_count}")
-
-        icon_path = os.path.join(os.path.dirname(__file__), "assets/icons/trash.png")
+        # Show toast notification
+        icon_path = Path(__file__).parent.parent / "assets/icons/trash.png"
         toast = Notification(app_id="TempFile Deleter",
-                             title="Temporary Files Deletion Complete",
+                             title="Temporary Files Deleted Successfully",
                              msg=""
                                  f"Deleted {delfile_count}/{file_count} files ({temp_files_size / 1024 / 1024:.2f} MB) and "
                                  f"{dir_count} empty directories.",
-                             icon=icon_path)
+                             icon=str(icon_path))
 
         toast.show()
 
